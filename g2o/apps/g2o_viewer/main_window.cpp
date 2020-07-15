@@ -40,8 +40,7 @@ using namespace g2o;
 
 MainWindow::MainWindow(QWidget * parent, Qt::WindowFlags flags) :
   QMainWindow(parent, flags),
-  _lastSolver(-1), _currentSolver(0), _viewerPropertiesWidget(0), _optimizerPropertiesWidget(0),
-  _filename("")
+  _lastSolver(-1), _currentSolver(0), _viewerPropertiesWidget(0), _optimizerPropertiesWidget(0)
 {
   setupUi(this);
   leKernelWidth->setValidator(new QDoubleValidator(-numeric_limits<double>::max(), numeric_limits<double>::max(), 7, this));
@@ -108,7 +107,7 @@ void MainWindow::on_btnOptimize_clicked()
   btnForceStop->hide();
 
   viewer->setUpdateDisplay(true);
-  viewer->update();
+  viewer->updateGL();
   _forceStopFlag = false;
 }
 
@@ -135,7 +134,7 @@ void MainWindow::on_btnInitialGuess_clicked()
   }
 
   viewer->setUpdateDisplay(true);
-  viewer->update();
+  viewer->updateGL();
 }
 
 void MainWindow::on_btnSetZero_clicked()
@@ -145,18 +144,7 @@ void MainWindow::on_btnSetZero_clicked()
 
   viewer->graph->setToOrigin();
   viewer->setUpdateDisplay(true);
-  viewer->update();
-}
-
-void MainWindow::on_btnReload_clicked()
-{
-  if (_filename.length()>0){
-    cerr << "reloading " << _filename << endl;
-    viewer->graph->clear();
-    viewer->graph->load(_filename.c_str());
-    viewer->setUpdateDisplay(true);
-    viewer->update();
-  }
+  viewer->updateGL();
 }
 
 void MainWindow::fixGraph()
@@ -240,17 +228,11 @@ void MainWindow::updateDisplayedSolvers()
 
 bool MainWindow::load(const QString& filename)
 {
+  ifstream ifs(filename.toStdString().c_str());
+  if (! ifs)
+    return false;
   viewer->graph->clear();
-  bool loadStatus = false;
-  if (filename == "-") {
-    cerr << "reading stdin" << endl;
-    loadStatus = viewer->graph->load(cin);
-  } else {
-    ifstream ifs(filename.toStdString().c_str());
-    if (! ifs)
-      return false;
-    loadStatus = viewer->graph->load(ifs);
-  }
+  bool loadStatus = viewer->graph->load(ifs);
   if (! loadStatus)
     return false;
   _lastSolver = -1;
@@ -371,12 +353,9 @@ bool MainWindow::loadFromFile(const QString& filename)
 {
   viewer->graph->clear();
   bool loadStatus = load(filename);
-  if (loadStatus){
-    _filename = filename.toStdString();
-  }
   cerr << "loaded " << filename.toStdString() << " with " << viewer->graph->vertices().size()
     << " vertices and " << viewer->graph->edges().size() << " measurements" << endl;
-  viewer->update();
+  viewer->updateGL();
   fixGraph();
   return loadStatus;
 }
@@ -384,13 +363,13 @@ bool MainWindow::loadFromFile(const QString& filename)
 void MainWindow::on_actionWhite_Background_triggered(bool)
 {
   viewer->setBackgroundColor(QColor::fromRgb(255, 255, 255));
-  viewer->update();
+  viewer->updateGL();
 }
 
 void MainWindow::on_actionDefault_Background_triggered(bool)
 {
   viewer->setBackgroundColor(QColor::fromRgb(51, 51, 51));
-  viewer->update();
+  viewer->updateGL();
 }
 
 void MainWindow::on_actionProperties_triggered(bool)
@@ -455,7 +434,7 @@ void MainWindow::on_actionLoad_Viewer_State_triggered(bool)
     viewer->setStateFileName(filename);
     viewer->restoreStateFromFile();
     viewer->setStateFileName(QString::null);
-    viewer->update();
+    viewer->updateGL();
     cerr << "Loaded state from " << filename.toStdString() << endl;
   }
 }

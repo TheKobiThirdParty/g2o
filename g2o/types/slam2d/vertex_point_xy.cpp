@@ -38,40 +38,42 @@
 namespace g2o {
 
   VertexPointXY::VertexPointXY() :
-    BaseVertex<2, Vector2>()
+    BaseVertex<2, Vector2D>()
   {
     _estimate.setZero();
   }
 
   bool VertexPointXY::read(std::istream& is)
   {
-    return internal::readVector(is, _estimate);
+    is >> _estimate[0] >> _estimate[1];
+    return true;
   }
 
   bool VertexPointXY::write(std::ostream& os) const
   {
-    return internal::writeVector(os, estimate());
+    os << estimate()(0) << " " << estimate()(1);
+    return os.good();
   }
 
   VertexPointXYWriteGnuplotAction::VertexPointXYWriteGnuplotAction(): WriteGnuplotAction(typeid(VertexPointXY).name()){}
 
   HyperGraphElementAction* VertexPointXYWriteGnuplotAction::operator()(HyperGraph::HyperGraphElement* element, HyperGraphElementAction::Parameters* params_){
     if (typeid(*element).name()!=_typeName)
-      return nullptr;
+      return 0;
 
     WriteGnuplotAction::Parameters* params=static_cast<WriteGnuplotAction::Parameters*>(params_);
     if (!params->os){
       std::cerr << __PRETTY_FUNCTION__ << ": warning, on valid os specified" << std::endl;
-      return nullptr;
+      return 0;
     }
-
+         
     VertexPointXY* v =  static_cast<VertexPointXY*>(element);
     *(params->os) << v->estimate().x() << " " << v->estimate().y() << std::endl;
     return this;
   }
 
 #ifdef G2O_HAVE_OPENGL
-  VertexPointXYDrawAction::VertexPointXYDrawAction() : DrawAction(typeid(VertexPointXY).name()), _pointSize(nullptr) {}
+  VertexPointXYDrawAction::VertexPointXYDrawAction(): DrawAction(typeid(VertexPointXY).name()){}
 
   bool VertexPointXYDrawAction::refreshPropertyPtrs(HyperGraphElementAction::Parameters* params_){
     if (! DrawAction::refreshPropertyPtrs(params_))
@@ -84,10 +86,11 @@ namespace g2o {
     return true;
   }
 
-  HyperGraphElementAction* VertexPointXYDrawAction::operator()(HyperGraph::HyperGraphElement* element,
-                                                               HyperGraphElementAction::Parameters* params) {
+  HyperGraphElementAction* VertexPointXYDrawAction::operator()(HyperGraph::HyperGraphElement* element, 
+                     HyperGraphElementAction::Parameters* params ){
+
     if (typeid(*element).name()!=_typeName)
-      return nullptr;
+      return 0;
     initializeDrawActionsCache();
     refreshPropertyPtrs(params);
     if (! _previousParams)

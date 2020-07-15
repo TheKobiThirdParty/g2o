@@ -33,6 +33,10 @@
 #include <vector>
 #include <utility>
 #include<Eigen/Core>
+//#ifndef EIGEN_USE_NEW_STDVECTOR
+//#define EIGEN_USE_NEW_STDVECTOR
+//#endif
+#include<Eigen/StdVector>
 
 namespace g2o {
 
@@ -46,7 +50,7 @@ namespace g2o {
       LinearSolverPCG() :
       LinearSolver<MatrixType>()
       {
-        _tolerance = cst(1e-6);
+        _tolerance = 1e-6;
         _verbose = false;
         _absoluteTolerance = true;
         _residual = -1.0;
@@ -65,11 +69,11 @@ namespace g2o {
         return true;
       }
 
-      bool solve(const SparseBlockMatrix<MatrixType>& A, number_t* x, number_t* b);
+      bool solve(const SparseBlockMatrix<MatrixType>& A, double* x, double* b);
 
       //! return the tolerance for terminating PCG before convergence
-      number_t tolerance() const { return _tolerance;}
-      void setTolerance(number_t tolerance) { _tolerance = tolerance;}
+      double tolerance() const { return _tolerance;}
+      void setTolerance(double tolerance) { _tolerance = tolerance;}
 
       int maxIterations() const { return _maxIter;}
       void setMaxIterations(int maxIter) { _maxIter = maxIter;}
@@ -84,8 +88,8 @@ namespace g2o {
       typedef std::vector< MatrixType, Eigen::aligned_allocator<MatrixType> > MatrixVector;
       typedef std::vector< const MatrixType* > MatrixPtrVector;
 
-      number_t _tolerance;
-      number_t _residual;
+      double _tolerance;
+      double _residual;
       bool _absoluteTolerance;
       bool _verbose;
       int _maxIter;
@@ -96,9 +100,9 @@ namespace g2o {
       std::vector<std::pair<int, int> > _indices;
       MatrixPtrVector _sparseMat;
 
-      void multDiag(const std::vector<int>& colBlockIndices, MatrixVector& A, const VectorX& src, VectorX& dest);
-      void multDiag(const std::vector<int>& colBlockIndices, MatrixPtrVector& A, const VectorX& src, VectorX& dest);
-      void mult(const std::vector<int>& colBlockIndices, const VectorX& src, VectorX& dest);
+      void multDiag(const std::vector<int>& colBlockIndices, MatrixVector& A, const VectorXD& src, VectorXD& dest);
+      void multDiag(const std::vector<int>& colBlockIndices, MatrixPtrVector& A, const VectorXD& src, VectorXD& dest);
+      void mult(const std::vector<int>& colBlockIndices, const VectorXD& src, VectorXD& dest);
   };
 
 #include "linear_solver_pcg.hpp"

@@ -25,6 +25,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Eigen/Core>
+#include <Eigen/StdVector>
 #include <Eigen/Geometry>
 #include <iostream>
 
@@ -157,8 +158,10 @@ int main(int argc, char** argv)
   // setup the solver
   g2o::SparseOptimizer optimizer;
   optimizer.setVerbose(false);
-  g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
-    g2o::make_unique<MyBlockSolver>(g2o::make_unique<MyLinearSolver>()));
+  MyLinearSolver* linearSolver = new MyLinearSolver();
+  MyBlockSolver* solver_ptr = new MyBlockSolver(linearSolver);
+  g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+  //g2o::OptimizationAlgorithmGaussNewton* solver = new g2o::OptimizationAlgorithmGaussNewton(solver_ptr);
   optimizer.setAlgorithm(solver);
 
   // build the optimization problem given the points

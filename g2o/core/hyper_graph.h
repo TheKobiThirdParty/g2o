@@ -27,10 +27,12 @@
 #ifndef G2O_AIS_HYPER_GRAPH_HH
 #define G2O_AIS_HYPER_GRAPH_HH
 
+#include <map>
 #include <set>
 #include <bitset>
 #include <cassert>
 #include <vector>
+#include <limits>
 #include <cstddef>
 
 #include <unordered_map>
@@ -43,7 +45,7 @@ namespace g2o {
 
   /**
      Class that models a directed  Hyper-Graph. An hyper graph is a graph where an edge
-     can connect one or more nodes. Both Vertices and Edges of an hyper graph
+     can connect one or more nodes. Both Vertices and Edges of an hyoper graph
      derive from the same class HyperGraphElement, thus one can implement generic algorithms
      that operate transparently on edges or vertices (see HyperGraphAction).
 
@@ -85,7 +87,7 @@ namespace g2o {
          * returns the type of the graph element, see HyperGraphElementType
          */
         virtual HyperGraphElementType elementType() const = 0;
-	HyperGraphElement* clone() const { return nullptr; }
+	HyperGraphElement* clone() const { return 0; }
       };
 
       /**
@@ -238,14 +240,14 @@ namespace g2o {
       virtual bool addVertex(Vertex* v);
 
       /**
-       * Adds an edge to the graph. If the edge is already in the graph, it
+       * Adds an edge  to the graph. If the edge is already in the graph, it
        * does nothing and returns false. Otherwise it returns true.
        */
       virtual bool addEdge(Edge* e);
 
 
       /**
-       * Sets the vertex in position "pos" within the edge and keeps the bookkeeping consistent.
+       * Sets the vertex un position "pos" within the edge and keeps the bookkeeping consistent.
        * If v ==0, the vertex is set to "invalid"
        */
       virtual bool setEdgeVertex(Edge* e, int pos, Vertex* v);

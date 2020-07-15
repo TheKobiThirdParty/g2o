@@ -27,16 +27,16 @@
 #include "edge_se3_pointxyz_depth.h"
 
 namespace g2o {
+  using namespace g2o;
 
   // point to camera projection, monocular
-  EdgeSE3PointXYZDepth::EdgeSE3PointXYZDepth()
-      : BaseBinaryEdge<3, Vector3, VertexSE3, VertexPointXYZ>(), cache(nullptr) {
+  EdgeSE3PointXYZDepth::EdgeSE3PointXYZDepth() : BaseBinaryEdge<3, Vector3D, VertexSE3, VertexPointXYZ>() {
     resizeParameters(1);
     installParameter(params, 0);
     information().setIdentity();
     information()(2,2)=100;
     J.fill(0);
-    J.block<3,3>(0,0) = -Matrix3::Identity();
+    J.block<3,3>(0,0) = -Matrix3D::Identity();
   }
 
   bool EdgeSE3PointXYZDepth::resolveCaches(){
@@ -46,40 +46,71 @@ namespace g2o {
     return cache != 0;
   }
 
+
+
+
   bool EdgeSE3PointXYZDepth::read(std::istream& is) {
-    readParamIds(is);
-    internal::readVector(is, _measurement); // measured keypoint
-    return readInformationMatrix(is);
+    int pid;
+    is >> pid;
+    setParameterId(0,pid);
+
+    // measured keypoint
+    Vector3D meas;
+    for (int i=0; i<3; i++) is >> meas[i];
+    setMeasurement(meas);
+    // don't need this if we don't use it in error calculation (???)
+    // information matrix is the identity for features, could be changed to allow arbitrary covariances    
+    if (is.bad()) {
+      return false;
+    }
+    for ( int i=0; i<information().rows() && is.good(); i++)
+      for (int j=i; j<information().cols() && is.good(); j++){
+  is >> information()(i,j);
+  if (i!=j)
+    information()(j,i)=information()(i,j);
+      }
+    if (is.bad()) {
+      //  we overwrite the information matrix
+      information().setIdentity();
+      information()(2,2)=10/_measurement(2); // scale the info by the inverse of the measured depth
+    } 
+    return true;
   }
 
   bool EdgeSE3PointXYZDepth::write(std::ostream& os) const {
-    writeParamIds(os);
-    internal::writeVector(os, measurement());
-    return writeInformationMatrix(os);
+    os << params->id() << " ";
+    for (int i=0; i<3; i++) os  << measurement()[i] << " ";
+    for (int i=0; i<information().rows(); i++)
+      for (int j=i; j<information().cols(); j++) {
+        os <<  information()(i,j) << " ";
+      }
+    return os.good();
   }
+
 
   void EdgeSE3PointXYZDepth::computeError() {
     // from cam to point (track)
     //VertexSE3 *cam = static_cast<VertexSE3*>(_vertices[0]);
     VertexPointXYZ *point = static_cast<VertexPointXYZ*>(_vertices[1]);
 
-    Vector3 p = cache->w2i() * point->estimate();
-    Vector3 perr;
+    Vector3D p = cache->w2i() * point->estimate();
+    Vector3D perr;
     perr.head<2>() = p.head<2>()/p(2);
     perr(2) = p(2);
 
     // error, which is backwards from the normal observed - calculated
     // _measurement is the measured projection
     _error = perr - _measurement;
+    //    std::cout << _error << std::endl << std::endl;
   }
 
   void EdgeSE3PointXYZDepth::linearizeOplus() {
     //VertexSE3 *cam = static_cast<VertexSE3 *>(_vertices[0]);
     VertexPointXYZ *vp = static_cast<VertexPointXYZ *>(_vertices[1]);
 
-    const Vector3& pt = vp->estimate();
+    const Vector3D& pt = vp->estimate();
 
-    Vector3 Zcam = cache->w2l() * pt;
+    Vector3D Zcam = cache->w2l() * pt;
 
     //  J(0,3) = -0.0;
     J(0,4) = -2*Zcam(2);
@@ -95,10 +126,10 @@ namespace g2o {
 
     J.block<3,3>(0,6) = cache->w2l().rotation();
 
-    Eigen::Matrix<number_t,3,9,Eigen::ColMajor> Jprime = params->Kcam_inverseOffsetR()  * J;
-    Vector3 Zprime = cache->w2i() * pt;
+    Eigen::Matrix<double,3,9,Eigen::ColMajor> Jprime = params->Kcam_inverseOffsetR()  * J;
+    Vector3D Zprime = cache->w2i() * pt;
 
-    Eigen::Matrix<number_t,3,9,Eigen::ColMajor> Jhom;
+    Eigen::Matrix<double,3,9,Eigen::ColMajor> Jhom;
     Jhom.block<2,9>(0,0) = 1/(Zprime(2)*Zprime(2)) * (Jprime.block<2,9>(0,0)*Zprime(2) - Zprime.head<2>() * Jprime.block<1,9>(2,0));
     Jhom.block<1,9>(2,0) = Jprime.block<1,9>(2,0);
 
@@ -112,10 +143,10 @@ namespace g2o {
     VertexPointXYZ *point = static_cast<VertexPointXYZ*>(_vertices[1]);
 
     // calculate the projection
-    const Vector3& pt = point->estimate();
+    const Vector3D& pt = point->estimate();
 
-    Vector3 p = cache->w2i() * pt;
-    Vector3 perr;
+    Vector3D p = cache->w2i() * pt;
+    Vector3D perr;
     perr.head<2>() = p.head<2>()/p(2);
     perr(2) = p(2);
     _measurement = perr;
@@ -130,8 +161,8 @@ namespace g2o {
 
     VertexSE3 *cam = dynamic_cast<VertexSE3*>(_vertices[0]);
     VertexPointXYZ *point = dynamic_cast<VertexPointXYZ*>(_vertices[1]);
-    const Eigen::Matrix<number_t, 3, 3, Eigen::ColMajor>& invKcam = params->invKcam();
-    Vector3 p;
+    const Eigen::Matrix<double, 3, 3, Eigen::ColMajor>& invKcam = params->invKcam();
+    Vector3D p;
     p(2) = _measurement(2);
     p.head<2>() = _measurement.head<2>()*p(2);
     p=invKcam*p;

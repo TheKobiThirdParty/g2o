@@ -1,6 +1,6 @@
 // Ceres Solver - A fast non-linear least squares minimizer
-// Copyright 2015 Google Inc. All rights reserved.
-// http://ceres-solver.org/
+// Copyright 2010, 2011, 2012 Google Inc. All rights reserved.
+// http://code.google.com/p/ceres-solver/
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
@@ -52,27 +52,40 @@ typedef Eigen::Matrix<double,
                       Eigen::ColMajor> ColMajorMatrix;
 
 typedef Eigen::Map<ColMajorMatrix, 0,
-                   Eigen::Stride<Eigen::Dynamic, 1>> ColMajorMatrixRef;
+                   Eigen::Stride<Eigen::Dynamic, 1> > ColMajorMatrixRef;
 
 typedef Eigen::Map<const ColMajorMatrix,
                    0,
-                   Eigen::Stride<Eigen::Dynamic, 1>> ConstColMajorMatrixRef;
+                   Eigen::Stride<Eigen::Dynamic, 1> > ConstColMajorMatrixRef;
+
+
 
 // C++ does not support templated typdefs, thus the need for this
 // struct so that we can support statically sized Matrix and Maps.
- template <int num_rows = Eigen::Dynamic, int num_cols = Eigen::Dynamic>
+template <int num_rows = Eigen::Dynamic, int num_cols = Eigen::Dynamic>
 struct EigenTypes {
-  typedef Eigen::Matrix<double,
-                        num_rows,
-                        num_cols,
-                        num_cols == 1 ? Eigen::ColMajor : Eigen::RowMajor>
-      Matrix;
+  typedef Eigen::Matrix <double, num_rows, num_cols, Eigen::RowMajor>
+  Matrix;
 
-  typedef Eigen::Map<Matrix> MatrixRef;
-  typedef Eigen::Map<const Matrix> ConstMatrixRef;
-  typedef Eigen::Matrix<double, num_rows, 1> Vector;
-  typedef Eigen::Map<Eigen::Matrix<double, num_rows, 1>> VectorRef;
-  typedef Eigen::Map<const Eigen::Matrix<double, num_rows, 1>> ConstVectorRef;
+  typedef Eigen::Map<
+    Eigen::Matrix<double, num_rows, num_cols, Eigen::RowMajor> >
+  MatrixRef;
+
+  typedef Eigen::Matrix <double, num_rows, 1>
+  Vector;
+
+  typedef Eigen::Map <
+    Eigen::Matrix<double, num_rows, 1> >
+  VectorRef;
+
+
+  typedef Eigen::Map<
+    const Eigen::Matrix<double, num_rows, num_cols, Eigen::RowMajor> >
+  ConstMatrixRef;
+
+  typedef Eigen::Map <
+    const Eigen::Matrix<double, num_rows, 1> >
+  ConstVectorRef;
 };
 
 }  // namespace ceres

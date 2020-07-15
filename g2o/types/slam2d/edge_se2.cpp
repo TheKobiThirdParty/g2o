@@ -40,18 +40,27 @@ namespace g2o {
 
   bool EdgeSE2::read(std::istream& is)
   {
-    Vector3 p;
-    internal::readVector(is, p);
+    Vector3D p;
+    is >> p[0] >> p[1] >> p[2];
     setMeasurement(SE2(p));
     _inverseMeasurement = measurement().inverse();
-    readInformationMatrix(is);
-    return is.good() || is.eof();
+    for (int i = 0; i < 3; ++i)
+      for (int j = i; j < 3; ++j) {
+        is >> information()(i, j);
+        if (i != j)
+          information()(j, i) = information()(i, j);
+      }
+    return true;
   }
 
   bool EdgeSE2::write(std::ostream& os) const
   {
-    internal::writeVector(os, measurement().toVector());
-    return writeInformationMatrix(os);
+    Vector3D p = measurement().toVector();
+    os << p.x() << " " << p.y() << " " << p.z();
+    for (int i = 0; i < 3; ++i)
+      for (int j = i; j < 3; ++j)
+        os << " " << information()(i, j);
+    return os.good();
   }
 
   void EdgeSE2::initialEstimate(const OptimizableGraph::VertexSet& from, OptimizableGraph::Vertex* /* to */)
@@ -69,26 +78,23 @@ namespace g2o {
   {
     const VertexSE2* vi = static_cast<const VertexSE2*>(_vertices[0]);
     const VertexSE2* vj = static_cast<const VertexSE2*>(_vertices[1]);
-    number_t thetai = vi->estimate().rotation().angle();
+    double thetai = vi->estimate().rotation().angle();
 
-    Vector2 dt = vj->estimate().translation() - vi->estimate().translation();
-    number_t si=std::sin(thetai), ci=std::cos(thetai);
+    Vector2D dt = vj->estimate().translation() - vi->estimate().translation();
+    double si=sin(thetai), ci=cos(thetai);
 
-    _jacobianOplusXi <<
-        -ci, -si, -si*dt.x()+ci*dt.y(),
-         si, -ci, -ci*dt.x()-si*dt.y(),
-         0,  0,   -1;
+    _jacobianOplusXi(0, 0) = -ci; _jacobianOplusXi(0, 1) = -si; _jacobianOplusXi(0, 2) = -si*dt.x()+ci*dt.y();
+    _jacobianOplusXi(1, 0) =  si; _jacobianOplusXi(1, 1) = -ci; _jacobianOplusXi(1, 2) = -ci*dt.x()-si*dt.y();
+    _jacobianOplusXi(2, 0) =  0;  _jacobianOplusXi(2, 1) = 0;   _jacobianOplusXi(2, 2) = -1;
 
-    _jacobianOplusXj <<
-         ci, si, 0,
-        -si, ci, 0,
-         0,  0,  1;
+    _jacobianOplusXj(0, 0) = ci; _jacobianOplusXj(0, 1)= si; _jacobianOplusXj(0, 2)= 0;
+    _jacobianOplusXj(1, 0) =-si; _jacobianOplusXj(1, 1)= ci; _jacobianOplusXj(1, 2)= 0;
+    _jacobianOplusXj(2, 0) = 0;  _jacobianOplusXj(2, 1)= 0;  _jacobianOplusXj(2, 2)= 1;
 
     const SE2& rmean = _inverseMeasurement;
-    Matrix3 z;
+    Matrix3D z = Matrix3D::Zero();
     z.block<2, 2>(0, 0) = rmean.rotation().toRotationMatrix();
-    z.col(2) << cst(0.), cst(0.), cst(1.);
-    z.row(2).head<2>() << cst(0.), cst(0.);
+    z(2, 2) = 1.;
     _jacobianOplusXi = z * _jacobianOplusXi;
     _jacobianOplusXj = z * _jacobianOplusXj;
   }
@@ -98,11 +104,11 @@ namespace g2o {
 
   HyperGraphElementAction* EdgeSE2WriteGnuplotAction::operator()(HyperGraph::HyperGraphElement* element, HyperGraphElementAction::Parameters* params_){
     if (typeid(*element).name()!=_typeName)
-      return nullptr;
+      return 0;
     WriteGnuplotAction::Parameters* params=static_cast<WriteGnuplotAction::Parameters*>(params_);
     if (!params->os){
       std::cerr << __PRETTY_FUNCTION__ << ": warning, on valid os specified" << std::endl;
-      return nullptr;
+      return 0;
     }
 
     EdgeSE2* e =  static_cast<EdgeSE2*>(element);
@@ -117,8 +123,7 @@ namespace g2o {
   }
 
 #ifdef G2O_HAVE_OPENGL
-  EdgeSE2DrawAction::EdgeSE2DrawAction()
-      : DrawAction(typeid(EdgeSE2).name()), _triangleX(nullptr), _triangleY(nullptr) {}
+  EdgeSE2DrawAction::EdgeSE2DrawAction(): DrawAction(typeid(EdgeSE2).name()){}
 
   bool EdgeSE2DrawAction::refreshPropertyPtrs(HyperGraphElementAction::Parameters* params_){
     if (!DrawAction::refreshPropertyPtrs(params_))
@@ -133,15 +138,15 @@ namespace g2o {
     return true;
   }
 
-  HyperGraphElementAction* EdgeSE2DrawAction::operator()(HyperGraph::HyperGraphElement* element,
+  HyperGraphElementAction* EdgeSE2DrawAction::operator()(HyperGraph::HyperGraphElement* element, 
                HyperGraphElementAction::Parameters* params_){
     if (typeid(*element).name()!=_typeName)
-      return nullptr;
+      return 0;
 
     refreshPropertyPtrs(params_);
     if (! _previousParams)
       return this;
-
+    
     if (_show && !_show->value())
       return this;
 

@@ -1,29 +1,3 @@
-// g2o - General Graph Optimization
-// Copyright (C) 2011 R. Kuemmerle, G. Grisetti, H. Strasdat, W. Burgard
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-// * Redistributions of source code must retain the above copyright notice,
-//   this list of conditions and the following disclaimer.
-// * Redistributions in binary form must reproduce the above copyright
-//   notice, this list of conditions and the following disclaimer in the
-//   documentation and/or other materials provided with the distribution.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-// TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
-// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-// TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 #include "edge_se3_lotsofxyz.h"
 
 namespace g2o{
@@ -35,12 +9,12 @@ namespace g2o{
   bool EdgeSE3LotsOfXYZ::setMeasurementFromState(){
     VertexSE3 * pose = static_cast<VertexSE3 *> (_vertices[0]);
 
-    Eigen::Transform<number_t, 3, 1> poseinv = pose->estimate().inverse();
+    Eigen::Transform<double, 3, 1> poseinv = pose->estimate().inverse();
 
     for(unsigned int i=0; i<_observedPoints; i++){
       VertexPointXYZ * xyz = static_cast<VertexPointXYZ *> (_vertices[1+i]);
-      //      const Vector3 &pt = xyz->estimate();
-      Vector3 m = poseinv * xyz->estimate();
+      //      const Vector3D &pt = xyz->estimate();
+      Vector3D m = poseinv * xyz->estimate();
 
       unsigned int index = 3*i;
       _measurement[index] = m[0];
@@ -55,7 +29,7 @@ namespace g2o{
 
     for(unsigned int i=0; i<_observedPoints; i++){
       VertexPointXYZ * xyz = static_cast<VertexPointXYZ *> (_vertices[1+i]);
-      Vector3 m = pose->estimate().inverse() * xyz->estimate();
+      Vector3D m = pose->estimate().inverse() * xyz->estimate();
 
       unsigned int index = 3*i;
       _error[index] = m[0] - _measurement[index];
@@ -68,21 +42,21 @@ namespace g2o{
     g2o::VertexSE3 * pose = (g2o::VertexSE3 *) (_vertices[0]);
 
     // initialize Ji matrix
-    MatrixX Ji;
+    MatrixXD Ji;
     unsigned int rows = 3*(_vertices.size()-1);
     Ji.resize(rows, 6);
     Ji.fill(0);
 
-    Matrix3 poseRot = pose->estimate().inverse().rotation();
+    Matrix3D poseRot = pose->estimate().inverse().rotation();
 
     for(unsigned int i=1; i<_vertices.size(); i++){
       g2o::VertexPointXYZ * point = (g2o::VertexPointXYZ *) (_vertices[i]);
-      Vector3 Zcam = pose->estimate().inverse() * point->estimate();
+      Vector3D Zcam = pose->estimate().inverse() * point->estimate();
 
       unsigned int index=3*(i-1);
 
       // Ji.block<3,3>(index,0) = -poseRot;
-      Ji.block<3,3>(index,0) = -Matrix3::Identity();
+      Ji.block<3,3>(index,0) = -Matrix3D::Identity();
 
       Ji(index, 3) = -0.0;
       Ji(index, 4) = -2*Zcam(2);
@@ -96,7 +70,7 @@ namespace g2o{
       Ji(index+2, 4) = 2*Zcam(0);
       Ji(index+2, 5) = -0.0;
 
-      MatrixX Jj;
+      MatrixXD Jj;
       Jj.resize(rows, 3);
       Jj.fill(0);
       Jj.block<3,3>(index,0) = poseRot;
@@ -174,7 +148,7 @@ namespace g2o{
     }
 #endif
 
-    for(std::set<HyperGraph::Vertex*>::iterator it=fixed.begin(); it!=fixed.end(); ++it){
+    for(std::set<HyperGraph::Vertex*>::iterator it=fixed.begin(); it!=fixed.end(); it++){
       for(unsigned int i=1; i<_vertices.size(); i++){
 	VertexPointXYZ * vert = static_cast<VertexPointXYZ *>(_vertices[i]);
 	if(vert->id() == (*it)->id()) estimate_this[i-1] = false;
@@ -184,7 +158,7 @@ namespace g2o{
     for(unsigned int i=1; i<_vertices.size(); i++){
       if(estimate_this[i-1]){
 	unsigned int index = 3*(i-1);
-	Vector3 submeas(_measurement[index], _measurement[index+1], _measurement[index+2]);
+	Vector3D submeas(_measurement[index], _measurement[index+1], _measurement[index+2]);
 	VertexPointXYZ * vert = static_cast<VertexPointXYZ *>(_vertices[i]);
 	vert->setEstimate(pose->estimate() * submeas);
       }
@@ -193,10 +167,10 @@ namespace g2o{
 
 
 
-  number_t EdgeSE3LotsOfXYZ::initialEstimatePossible(const OptimizableGraph::VertexSet& fixed, OptimizableGraph::Vertex* toEstimate){
+  double EdgeSE3LotsOfXYZ::initialEstimatePossible(const OptimizableGraph::VertexSet& fixed, OptimizableGraph::Vertex* toEstimate){
     (void) toEstimate;
 
-    for(std::set<HyperGraph::Vertex *>::iterator it=fixed.begin(); it!=fixed.end(); ++it){
+    for(std::set<HyperGraph::Vertex *>::iterator it=fixed.begin(); it!=fixed.end(); it++){
       if(_vertices[0]->id() == (*it)->id()){
 	return 1.0;
       }

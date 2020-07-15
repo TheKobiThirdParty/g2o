@@ -1,16 +1,16 @@
 // g2o - General Graph Optimization
 // Copyright (C) 2011 R. Kuemmerle, G. Grisetti, W. Burgard
-//
+// 
 // g2o is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
+// 
 // g2o is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-//
+// 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -24,22 +24,21 @@
 
 #include "g2o/stuff/macros.h"
 
+#define DIM_TO_SOLVER(p, l) BlockSolver< BlockSolverTraits<p, l> >
+
+#define ALLOC_CHOLMOD(s, p, l) \
+  if (1) { \
+    std::cerr << "# Using CHOLMOD online poseDim " << p << " landMarkDim " << l << " blockordering 1" << std::endl; \
+    LinearSolverCholmodOnline < DIM_TO_SOLVER(p, l)::PoseMatrixType >* linearSolver = new LinearSolverCholmodOnline<DIM_TO_SOLVER(p, l)::PoseMatrixType>(); \
+    s = new DIM_TO_SOLVER(p, l)(linearSolver); \
+  } else (void)0
+
 using namespace std;
 using namespace Eigen;
 
 namespace g2o {
 
   namespace {
-
-    template<int p, int l>
-    std::unique_ptr<g2o::Solver> AllocateCholmodSolver()
-    {
-      std::cerr << "# Using CHOLMOD online poseDim " << p << " landMarkDim " << l << " blockordering 1" << std::endl;
-
-      return g2o::make_unique<BlockSolverPL<p, l>>(
-        g2o::make_unique<LinearSolverCholmodOnline<typename BlockSolverPL<p, l>::PoseMatrixType>>());
-    }
-
     /**
      * \brief backing up some information about the vertex
      */
@@ -94,6 +93,7 @@ namespace g2o {
     OptimizationAlgorithm* solver = _algorithm;
     solver->init(online);
 
+    int cjIterations=0;
     bool ok=true;
 
     if (! online || batchStep) {
@@ -168,7 +168,12 @@ namespace g2o {
       _solverInterface->solve(_underlyingSolver->x(), _underlyingSolver->b());
     }
 
+    // print statistics for the non-zeros
+    //static ofstream debugNonZeros("non-zeros.txt");
+    //debugNonZeros << _solverInterface->nonZerosInL() << endl;
+
     update(_underlyingSolver->x());
+    ++cjIterations; 
 
     if (verbose()){
       computeActiveErrors();
@@ -231,7 +236,7 @@ namespace g2o {
           newVertices.push_back(v);
           _activeVertices.push_back(v);
           next++;
-        }
+        } 
         else // not supported right now
           abort();
       }
@@ -364,7 +369,7 @@ namespace g2o {
           int rr = r / slamDimension;
           int roff = r % slamDimension;
           const int& rbase = backupIdx[rr].vertex->colInHessian();
-
+          
           int row = _perm(rbase + roff);
           int col = ccol;
           if (col > row) // lower triangular entry
@@ -453,16 +458,16 @@ namespace g2o {
 
   static OptimizationAlgorithm* createSolver(const std::string& solverName)
   {
-    std::unique_ptr<g2o::Solver> s;
+    g2o::Solver* s = 0;
 
     if (solverName == "fix3_2_cholmod") {
-      s = AllocateCholmodSolver<3, 2>();
+      ALLOC_CHOLMOD(s, 3, 2);
     }
     else if (solverName == "fix6_3_cholmod") {
-      s = AllocateCholmodSolver<6, 3>();
+      ALLOC_CHOLMOD(s, 6, 3);
     }
 
-    OptimizationAlgorithmGaussNewton* gaussNewton = new OptimizationAlgorithmGaussNewton(std::move(s));
+    OptimizationAlgorithmGaussNewton* gaussNewton = new OptimizationAlgorithmGaussNewton(s);
     return gaussNewton;
   }
 
@@ -474,9 +479,9 @@ namespace g2o {
       setAlgorithm(createSolver("fix3_2_cholmod"));
       OptimizationAlgorithmGaussNewton* gaussNewton = dynamic_cast<OptimizationAlgorithmGaussNewton*>(solver());
       assert(gaussNewton);
-      BlockSolver<BlockSolverTraits<3, 2> >* bs = dynamic_cast<BlockSolver<BlockSolverTraits<3, 2> >*>(&gaussNewton->solver());
+      BlockSolver<BlockSolverTraits<3, 2> >* bs = dynamic_cast<BlockSolver<BlockSolverTraits<3, 2> >*>(gaussNewton->solver());
       assert(bs && "Unable to get internal block solver");
-      LinearSolverCholmodOnline<Matrix3d>* s = dynamic_cast<LinearSolverCholmodOnline<Matrix3d>*>(&bs->linearSolver());
+      LinearSolverCholmodOnline<Matrix3d>* s = dynamic_cast<LinearSolverCholmodOnline<Matrix3d>*>(bs->linearSolver());
       bs->setAdditionalVectorSpace(300);
       bs->setSchur(false);
       _solverInterface = s;
@@ -485,9 +490,9 @@ namespace g2o {
       setAlgorithm(createSolver("fix6_3_cholmod"));
       OptimizationAlgorithmGaussNewton* gaussNewton = dynamic_cast<OptimizationAlgorithmGaussNewton*>(solver());
       assert(gaussNewton);
-      BlockSolver<BlockSolverTraits<6, 3> >* bs = dynamic_cast<BlockSolver<BlockSolverTraits<6, 3> >*>(&gaussNewton->solver());
+      BlockSolver<BlockSolverTraits<6, 3> >* bs = dynamic_cast<BlockSolver<BlockSolverTraits<6, 3> >*>(gaussNewton->solver());
       assert(bs && "Unable to get internal block solver");
-      LinearSolverCholmodOnline<Matrix<double, 6, 6> >* s = dynamic_cast<LinearSolverCholmodOnline<Matrix<double, 6, 6> >*>(&bs->linearSolver());
+      LinearSolverCholmodOnline<Matrix<double, 6, 6> >* s = dynamic_cast<LinearSolverCholmodOnline<Matrix<double, 6, 6> >*>(bs->linearSolver());
       bs->setAdditionalVectorSpace(600);
       bs->setSchur(false);
       _solverInterface = s;
@@ -542,7 +547,7 @@ namespace g2o {
       w[Tj [k]]++;
 
     /* column pointers */
-    const int n = _permutedUpdate->ncol;
+    int n = _permutedUpdate->ncol;
     int nz = 0;
     for (int i = 0 ; i < n ; i++) {
       Cp[i] = nz;
@@ -552,8 +557,9 @@ namespace g2o {
     Cp[n] = nz;
     assert((size_t)nz == _permutedUpdate->nnz);
 
+    int p;
     for (size_t k = 0 ; k < _permutedUpdate->nnz ; ++k) {
-      int p = w[Tj[k]]++;
+      p = w[Tj[k]]++;
       Ci[p] = Ti[k] ;    /* A(i,j) is the pth entry in C */
       Cx[p] = Tx[k] ;
     }

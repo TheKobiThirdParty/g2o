@@ -28,6 +28,7 @@
 #define G2O_FACTORY_H
 
 #include "g2o/config.h"
+#include "g2o/stuff/misc.h"
 #include "hyper_graph.h"
 #include "creators.h"
 
@@ -40,6 +41,7 @@
 
 namespace g2o {
 
+  class AbstractHyperGraphElementCreator;
   
   /**
    * \brief create vertices and edges based on TAGs in, for example, a file
@@ -134,8 +136,7 @@ namespace g2o {
 #ifdef G2O_DEBUG_FACTORY
         std::cout << __FUNCTION__ << ": Registering " << _name << " of type " << typeid(T).name() << std::endl;
 #endif
-        _creator = new HyperGraphElementCreator<T>();
-        Factory::instance()->registerType(_name, _creator);
+        Factory::instance()->registerType(_name, new HyperGraphElementCreator<T>());
       }
 
       ~RegisterTypeProxy()
@@ -144,12 +145,10 @@ namespace g2o {
         std::cout << __FUNCTION__ << ": Unregistering " << _name << " of type " << typeid(T).name() << std::endl;
 #endif
         Factory::instance()->unregisterType(_name);
-        delete _creator;
       }
 
     private:
       std::string _name;
-      HyperGraphElementCreator<T>* _creator;
   };
 
 #if defined _MSC_VER && defined G2O_SHARED_LIBS

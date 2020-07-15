@@ -31,48 +31,52 @@
 
 #include "vertex_se2.h"
 #include "vertex_point_xy.h"
+#include "parameter_se2_offset.h"
 #include "g2o_types_slam2d_api.h"
 
 namespace g2o {
 
 
-  /*! \class EdgeSE2PointXYOffset
+  /*! \class EdgeSE2TrackXYZ
    * \brief g2o edge from a track to a point node
    */
   // first two args are the measurement type, second two the connection classes
-  class G2O_TYPES_SLAM2D_API EdgeSE2PointXYOffset : public BaseBinaryEdge<2, Vector2, VertexSE2, VertexPointXY> {
+  class G2O_TYPES_SLAM2D_API EdgeSE2PointXYOffset : public BaseBinaryEdge<2, Vector2D, VertexSE2, VertexPointXY> {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     EdgeSE2PointXYOffset();
     virtual bool read(std::istream& is);
     virtual bool write(std::ostream& os) const;
 
+    // return the error estimate as a 3-vector
     void computeError();
+    // jacobian
     virtual void linearizeOplus();
+    
 
-
-    virtual void setMeasurement(const Vector2& m){
+    virtual void setMeasurement(const Vector2D& m){
       _measurement = m;
     }
 
-    virtual bool setMeasurementData(const number_t* d){
-      Eigen::Map<const Vector2> v(d);
+    virtual bool setMeasurementData(const double* d){
+      Eigen::Map<const Vector2D> v(d);
       _measurement = v;
       return true;
     }
 
-    virtual bool getMeasurementData(number_t* d) const{
-      Eigen::Map<Vector2> v(d);
+    virtual bool getMeasurementData(double* d) const{
+      Eigen::Map<Vector2D> v(d);
       v=_measurement;
       return true;
     }
-
+    
     virtual int measurementDimension() const {return 3;}
 
     virtual bool setMeasurementFromState() ;
 
-    virtual number_t initialEstimatePossible(const OptimizableGraph::VertexSet& from, OptimizableGraph::Vertex* to) {
-      (void)to;
+    virtual double initialEstimatePossible(const OptimizableGraph::VertexSet& from, 
+             OptimizableGraph::Vertex* to) { 
+      (void) to; 
       return (from.count(_vertices[0]) == 1 ? 1.0 : -1.0);
     }
 

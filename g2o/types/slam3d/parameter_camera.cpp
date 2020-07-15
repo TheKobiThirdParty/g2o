@@ -43,12 +43,12 @@ namespace g2o {
     setOffset();
   }
 
-  void ParameterCamera::setOffset(const Isometry3& offset_){
+  void ParameterCamera::setOffset(const Isometry3D& offset_){
     ParameterSE3Offset::setOffset(offset_);
     _Kcam_inverseOffsetR = _Kcam * inverseOffset().rotation();
   }
 
-  void ParameterCamera::setKcam(number_t fx, number_t fy, number_t cx, number_t cy){
+  void ParameterCamera::setKcam(double fx, double fy, double cx, double cy){
     _Kcam.setZero();
     _Kcam(0,0) = fx;
     _Kcam(1,1) = fy;
@@ -61,19 +61,22 @@ namespace g2o {
 
 
   bool ParameterCamera::read(std::istream& is) {
-    Vector7 off;
-    internal::readVector(is, off);
+    Vector7d off;
+    for (int i=0; i<7; i++)
+      is >> off[i];
     // normalize the quaternion to recover numerical precision lost by storing as human readable text
-    Vector4::MapType(off.data()+3).normalize();
+    Vector4D::MapType(off.data()+3).normalize();
     setOffset(internal::fromVectorQT(off));
-    number_t fx,fy,cx,cy;
+    double fx,fy,cx,cy;
     is >> fx >> fy >> cx >> cy;
     setKcam(fx,fy,cx,cy);
     return is.good();
   }
-
+  
   bool ParameterCamera::write(std::ostream& os) const {
-    internal::writeVector(os, internal::toVectorQT(_offset));
+    Vector7d off = internal::toVectorQT(_offset);
+    for (int i=0; i<7; i++)
+      os << off[i] << " ";
     os << _Kcam(0,0) << " ";
     os << _Kcam(1,1) << " ";
     os << _Kcam(0,2) << " ";
@@ -107,7 +110,7 @@ namespace g2o {
     if (_previousParams){
       _cameraZ = _previousParams->makeProperty<FloatProperty>(_typeName + "::CAMERA_Z", .05f);
       _cameraSide = _previousParams->makeProperty<FloatProperty>(_typeName + "::CAMERA_SIDE", .05f);
-
+      
     } else {
       _cameraZ = 0;
       _cameraSide = 0;
@@ -115,22 +118,22 @@ namespace g2o {
     return true;
   }
 
-  HyperGraphElementAction* CacheCameraDrawAction::operator()(HyperGraph::HyperGraphElement* element,
+  HyperGraphElementAction* CacheCameraDrawAction::operator()(HyperGraph::HyperGraphElement* element, 
                  HyperGraphElementAction::Parameters* params){
     if (typeid(*element).name()!=_typeName)
-      return nullptr;
+      return 0;
     CacheCamera* that = static_cast<CacheCamera*>(element);
     refreshPropertyPtrs(params);
     if (! _previousParams)
       return this;
-
+    
     if (_show && !_show->value())
       return this;
 
     glPushAttrib(GL_COLOR);
     glColor3f(POSE_PARAMETER_COLOR);
     glPushMatrix();
-    glMultMatrixd(that->camParams()->offset().cast<double>().data());
+    glMultMatrixd(that->camParams()->offset().data());
     glRotatef(180.0f, 0.0f, 1.0f, 0.0f);
     opengl::drawPyramid(_cameraSide->value(), _cameraZ->value());
     glPopMatrix();

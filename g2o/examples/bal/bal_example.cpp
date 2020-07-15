@@ -25,6 +25,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Eigen/Core>
+#include <Eigen/StdVector>
 #include <Eigen/Geometry>
 #include <iostream>
 
@@ -55,7 +56,7 @@ using namespace Eigen;
 /**
  * \brief camera vertex which stores the parameters for a pinhole camera
  *
- * The parameters of the camera are
+ * The parameters of the camera are 
  * - rx,ry,rz representing the rotation axis, whereas the angle is given by ||(rx,ry,rz)||
  * - tx,ty,tz the translation of the camera
  * - f the focal length of the camera
@@ -144,7 +145,7 @@ class VertexPointBAL : public BaseVertex<3, Eigen::Vector3d>
  *
  * In the last equation, r(p) is a function that computes a scaling factor to undo the radial
  * distortion:
- * r(p) = 1.0 + k1 * ||p||^2 + k2 * ||p||^4.
+ * r(p) = 1.0 + k1 * ||p||^2 + k2 * ||p||^4. 
  *
  * This gives a projection in pixels, where the origin of the image is the
  * center of the image, the positive x-axis points right, and the positive
@@ -253,24 +254,19 @@ class EdgeObservationBAL : public BaseBinaryEdge<2, Vector2d, VertexCameraBAL, V
     void linearizeOplus()
     {
       // use numeric Jacobians
-      BaseBinaryEdge<2, Vector2d, VertexCameraBAL, VertexPointBAL>::linearizeOplus();
-      return;
+      //BaseBinaryEdge<2, Vector2d, VertexCameraBAL, VertexPointBAL>::linearizeOplus();
+      //return;
 
       const VertexCameraBAL* cam = static_cast<const VertexCameraBAL*>(vertex(0));
       const VertexPointBAL* point = static_cast<const VertexPointBAL*>(vertex(1));
-      // typedef ceres::internal::AutoDiff<EdgeObservationBAL, double, VertexCameraBAL::Dimension, VertexPointBAL::Dimension> BalAutoDiff;
+      typedef ceres::internal::AutoDiff<EdgeObservationBAL, double, VertexCameraBAL::Dimension, VertexPointBAL::Dimension> BalAutoDiff;
 
-      Matrix<number_t, Dimension, VertexCameraBAL::Dimension, Eigen::RowMajor> dError_dCamera;
-      Matrix<number_t, Dimension, VertexPointBAL::Dimension, Eigen::RowMajor> dError_dPoint;
-      number_t* parameters[] = {const_cast<number_t*>(cam->estimate().data()),
-                              const_cast<number_t*>(point->estimate().data())};
-      number_t* jacobians[] = {dError_dCamera.data(), dError_dPoint.data()};
-      number_t value[Dimension];
-      using BalAutoDiffDims =
-          ceres::internal::StaticParameterDims<VertexCameraBAL::Dimension, VertexPointBAL::Dimension>;
-      bool diffState =
-          ceres::internal::AutoDifferentiate<EdgeObservationBAL::Dimension, BalAutoDiffDims, EdgeObservationBAL,
-                                             number_t>(*this, parameters, Dimension, value, jacobians);
+      Matrix<double, Dimension, VertexCameraBAL::Dimension, Eigen::RowMajor> dError_dCamera;
+      Matrix<double, Dimension, VertexPointBAL::Dimension, Eigen::RowMajor> dError_dPoint;
+      double *parameters[] = { const_cast<double*>(cam->estimate().data()), const_cast<double*>(point->estimate().data()) };
+      double *jacobians[] = { dError_dCamera.data(), dError_dPoint.data() };
+      double value[Dimension];
+      bool diffState = BalAutoDiff::Differentiate(*this, parameters, Dimension, value, jacobians);
 
       // copy over the Jacobians (convert row-major -> column-major)
       if (diffState) {
@@ -315,19 +311,18 @@ int main(int argc, char** argv)
   typedef g2o::LinearSolverPCG<BalBlockSolver::PoseMatrixType> BalLinearSolverPCG;
 
   g2o::SparseOptimizer optimizer;
-  std::unique_ptr<g2o::LinearSolver<BalBlockSolver::PoseMatrixType>> linearSolver;
+  g2o::LinearSolver<BalBlockSolver::PoseMatrixType>* linearSolver = 0;
   if (usePCG) {
     cout << "Using PCG" << endl;
-    linearSolver = g2o::make_unique<BalLinearSolverPCG>();
+    linearSolver = new BalLinearSolverPCG();
   } else {
     cout << "Using Cholesky: " << choleskySolverName << endl;
-    auto cholesky = g2o::make_unique<BalLinearSolver>();
+    BalLinearSolver* cholesky = new BalLinearSolver();
     cholesky->setBlockOrdering(true);
-    linearSolver = std::move(cholesky);
+    linearSolver = cholesky;
   }
-  g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(
-    g2o::make_unique<BalBlockSolver>(std::move(linearSolver)));
-
+  BalBlockSolver* solver_ptr = new BalBlockSolver(linearSolver);
+  g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
   //solver->setUserLambdaInit(1);
   optimizer.setAlgorithm(solver);
   if (statsFilename.size() > 0){
@@ -429,7 +424,7 @@ int main(int argc, char** argv)
   // dump the points
   if (outputFilename.size() > 0) {
     ofstream fout(outputFilename.c_str()); // loadable with meshlab
-    fout
+    fout 
       << "#VRML V2.0 utf8\n"
       << "Shape {\n"
       << "  appearance Appearance {\n"
@@ -450,6 +445,6 @@ int main(int argc, char** argv)
     }
     fout << "    ]\n" << "  }\n" << "}\n" << "  }\n";
   }
-
+  
   return 0;
 }

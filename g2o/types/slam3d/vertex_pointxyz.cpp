@@ -36,9 +36,22 @@
 
 namespace g2o {
 
-bool VertexPointXYZ::read(std::istream& is) { return internal::readVector(is, _estimate); }
+  bool VertexPointXYZ::read(std::istream& is) {
+    Vector3D lv;
+    for (int i=0; i<3; i++)
+      is >> lv[i];
+    setEstimate(lv);
+    return true;
+  }
 
-bool VertexPointXYZ::write(std::ostream& os) const { return internal::writeVector(os, estimate()); }
+  bool VertexPointXYZ::write(std::ostream& os) const {
+    Vector3D lv=estimate();
+    for (int i=0; i<3; i++){
+      os << lv[i] << " ";
+    }
+    return os.good();
+  }
+
 
 #ifdef G2O_HAVE_OPENGL
   VertexPointXYZDrawAction::VertexPointXYZDrawAction(): DrawAction(typeid(VertexPointXYZ).name()){
@@ -56,20 +69,20 @@ bool VertexPointXYZ::write(std::ostream& os) const { return internal::writeVecto
   }
 
 
-  HyperGraphElementAction* VertexPointXYZDrawAction::operator()(HyperGraph::HyperGraphElement* element,
+  HyperGraphElementAction* VertexPointXYZDrawAction::operator()(HyperGraph::HyperGraphElement* element, 
                      HyperGraphElementAction::Parameters* params ){
 
     if (typeid(*element).name()!=_typeName)
-      return nullptr;
+      return 0;
     initializeDrawActionsCache();
     refreshPropertyPtrs(params);
     if (! _previousParams)
       return this;
-
+    
     if (_show && !_show->value())
       return this;
     VertexPointXYZ* that = static_cast<VertexPointXYZ*>(element);
-
+    
 
     glPushMatrix();
     glPushAttrib(GL_ENABLE_BIT | GL_POINT_BIT);
@@ -94,11 +107,11 @@ bool VertexPointXYZ::write(std::ostream& os) const { return internal::writeVecto
   HyperGraphElementAction* VertexPointXYZWriteGnuplotAction::operator()(HyperGraph::HyperGraphElement* element, HyperGraphElementAction::Parameters* params_ )
   {
     if (typeid(*element).name()!=_typeName)
-      return nullptr;
+      return 0;
     WriteGnuplotAction::Parameters* params=static_cast<WriteGnuplotAction::Parameters*>(params_);
     if (!params->os){
       std::cerr << __PRETTY_FUNCTION__ << ": warning, no valid os specified" << std::endl;
-      return nullptr;
+      return 0;
     }
 
     VertexPointXYZ* v = static_cast<VertexPointXYZ*>(element);

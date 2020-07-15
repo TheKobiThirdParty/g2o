@@ -34,52 +34,54 @@
 #include "g2o/core/optimization_algorithm_gauss_newton.h"
 #include "g2o/core/optimization_algorithm_levenberg.h"
 
+#define DIM_TO_SOLVER(p, l) BlockSolver< BlockSolverTraits<p, l> >
+
+#define ALLOC_PCG(s, p, l) \
+  if (1) { \
+      std::cerr << "# Using PCG poseDim " << p << " landMarkDim " << l << std::endl; \
+      DIM_TO_SOLVER(p, l)::LinearSolverType* linearSolver = new LinearSolverPCG<DIM_TO_SOLVER(p, l)::PoseMatrixType>(); \
+      s = new DIM_TO_SOLVER(p, l)(linearSolver); \
+  } else (void)0
+
 using namespace std;
 
-namespace g2o
-{
-  namespace
-  {
-    template<int p, int l>
-    std::unique_ptr<g2o::Solver> AllocateSolver()
-    {
-      std::cerr << "# Using PCG poseDim " << p << " landMarkDim " << l << std::endl;
-
-      return g2o::make_unique<BlockSolverPL<p, l>>(
-        g2o::make_unique<LinearSolverPCG<typename BlockSolverPL<p, l>::PoseMatrixType>>());
-    }
-  }
+namespace g2o {
 
   static OptimizationAlgorithm* createSolver(const std::string& fullSolverName)
   {
-    static const std::map<std::string, std::function<std::unique_ptr<g2o::Solver>()>> solver_factories{
-        { "pcg", &AllocateSolver<-1, -1> },
-        { "pcg3_2", &AllocateSolver<3, 2> },
-        { "pcg6_3", &AllocateSolver<6, 3> },
-        { "pcg7_3", &AllocateSolver<7, 3> },
-    };
-
-    string solverName = fullSolverName.substr(3);
-    auto solverf = solver_factories.find(solverName);
-    if (solverf == solver_factories.end())
-      return nullptr;
+    g2o::Solver* s = 0;
 
     string methodName = fullSolverName.substr(0, 2);
+    string solverName = fullSolverName.substr(3);
 
+    if (solverName == "pcg") {
+      ALLOC_PCG(s, -1, -1);
+    }
+    else if (solverName == "pcg3_2") {
+      ALLOC_PCG(s, 3, 2);
+    }
+    else if (solverName == "pcg6_3") {
+      ALLOC_PCG(s, 6, 3);
+    }
+    else if (solverName == "pcg7_3") {
+      ALLOC_PCG(s, 7, 3);
+    }
+
+    OptimizationAlgorithm* snl = 0;
     if (methodName == "gn") {
-      return new OptimizationAlgorithmGaussNewton(solverf->second());
+      snl = new OptimizationAlgorithmGaussNewton(s);
     }
     else if (methodName == "lm") {
-      return new OptimizationAlgorithmLevenberg(solverf->second());
+      snl = new OptimizationAlgorithmLevenberg(s);
     }
 
-    return nullptr;
+    return snl;
   }
 
   class PCGSolverCreator : public AbstractOptimizationAlgorithmCreator
   {
     public:
-      explicit PCGSolverCreator(const OptimizationAlgorithmProperty& p) : AbstractOptimizationAlgorithmCreator(p) {}
+      PCGSolverCreator(const OptimizationAlgorithmProperty& p) : AbstractOptimizationAlgorithmCreator(p) {}
       virtual OptimizationAlgorithm* construct()
       {
         return createSolver(property().name);

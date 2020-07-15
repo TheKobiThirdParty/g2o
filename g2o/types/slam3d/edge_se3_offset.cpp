@@ -51,61 +51,91 @@ namespace g2o {
     ParameterVector pv(2);
     pv[0]=_offsetFrom;
     resolveCache(_cacheFrom, (OptimizableGraph::Vertex*)_vertices[0],"CACHE_SE3_OFFSET",pv);
-    pv[0]=_offsetTo;
+    pv[1]=_offsetTo;
     resolveCache(_cacheTo, (OptimizableGraph::Vertex*)_vertices[1],"CACHE_SE3_OFFSET",pv);
     return (_cacheFrom && _cacheTo);
   }
 
   bool EdgeSE3Offset::read(std::istream& is) {
-    bool state = readParamIds(is);
+    int pidFrom, pidTo;
+    is >> pidFrom >> pidTo   ;
+    if (! setParameterId(0,pidFrom))
+      return false;
+    if (! setParameterId(1,pidTo))
+      return false;
 
-    Vector7 meas;
-    state &= internal::readVector(is, meas);
+    Vector7d meas;
+    for (int i=0; i<7; i++)
+      is >> meas[i];
     // normalize the quaternion to recover numerical precision lost by storing as human readable text
-    Vector4::MapType(meas.data() + 3).normalize();
+    Vector4D::MapType(meas.data()+3).normalize();
     setMeasurement(internal::fromVectorQT(meas));
 
-    state &= readInformationMatrix(is);
-    return state;
+    if (is.bad()) {
+      return false;
+    }
+    for ( int i=0; i<information().rows() && is.good(); i++)
+      for (int j=i; j<information().cols() && is.good(); j++){
+  is >> information()(i,j);
+  if (i!=j)
+    information()(j,i)=information()(i,j);
+      }
+    if (is.bad()) {
+      //  we overwrite the information matrix with the Identity
+      information().setIdentity();
+    }
+    return true;
   }
 
   bool EdgeSE3Offset::write(std::ostream& os) const {
-    writeParamIds(os);
-    internal::writeVector(os, internal::toVectorQT(_measurement));
-    writeInformationMatrix(os);
+    os << parameter(0)->id() << " ";
+    os << parameter(1)->id() << " ";
+    Vector7d meas=internal::toVectorQT(_measurement);
+    for (int i=0; i<7; i++) os  << meas[i] << " ";
+    for (int i=0; i<information().rows(); i++)
+      for (int j=i; j<information().cols(); j++) {
+        os <<  information()(i,j) << " ";
+      }
     return os.good();
   }
 
   void EdgeSE3Offset::computeError() {
-    Isometry3 delta=_inverseMeasurement * _cacheFrom->w2n() * _cacheTo->n2w();
+    Isometry3D delta=_inverseMeasurement * _cacheFrom->w2n() * _cacheTo->n2w();
     _error=internal::toVectorMQT(delta);
   }
 
   bool EdgeSE3Offset::setMeasurementFromState(){
-    Isometry3 delta = _cacheFrom->w2n() * _cacheTo->n2w();
+    Isometry3D delta = _cacheFrom->w2n() * _cacheTo->n2w();
     setMeasurement(delta);
     return true;
   }
 
-  void EdgeSE3Offset::linearizeOplus() {
-    // BaseBinaryEdge<6, SE3Quat, VertexSE3, VertexSE3>::linearizeOplus();
+  void EdgeSE3Offset::linearizeOplus(){
+    //BaseBinaryEdge<6, SE3Quat, VertexSE3, VertexSE3>::linearizeOplus();
 
-    VertexSE3* from = static_cast<VertexSE3*>(_vertices[0]);
-    VertexSE3* to = static_cast<VertexSE3*>(_vertices[1]);
-    Isometry3 E;
-    const Isometry3& Xi = from->estimate();
-    const Isometry3& Xj = to->estimate();
-    const Isometry3& Pi = _cacheFrom->offsetParam()->offset();
-    const Isometry3& Pj = _cacheTo->offsetParam()->offset();
-    const Isometry3& Z = _measurement;
-    internal::computeEdgeSE3Gradient(E, _jacobianOplusXi, _jacobianOplusXj, Z, Xi, Xj, Pi, Pj);
+    VertexSE3 *from = static_cast<VertexSE3*>(_vertices[0]);
+    VertexSE3 *to   = static_cast<VertexSE3*>(_vertices[1]);
+    Isometry3D E;
+    const Isometry3D& Xi=from->estimate();
+    const Isometry3D& Xj=to->estimate();
+    const Isometry3D& Pi=_cacheFrom->offsetParam()->offset();
+    const Isometry3D& Pj=_cacheTo->offsetParam()->offset();
+    const Isometry3D& Z=_measurement;
+    // Matrix6d Ji, Jj;
+    // computeSE3Gradient(E, Ji , Jj,
+    //                    Z, Pi, Xi, Pj, Xj);
+    // cerr  << "Ji:" << endl;
+    // cerr << Ji-_jacobianOplusXi << endl;
+    // cerr  << "Jj:" << endl;
+    // cerr << Jj-_jacobianOplusXj << endl;
+    internal::computeEdgeSE3Gradient(E, _jacobianOplusXi , _jacobianOplusXj, Z, Xi, Xj, Pi, Pj);
   }
 
   void EdgeSE3Offset::initialEstimate(const OptimizableGraph::VertexSet& from_, OptimizableGraph::Vertex* /*to_*/) {
     VertexSE3 *from = static_cast<VertexSE3*>(_vertices[0]);
     VertexSE3 *to   = static_cast<VertexSE3*>(_vertices[1]);
 
-    Isometry3 virtualMeasurement = _cacheFrom->offsetParam()->offset() * measurement() * _cacheTo->offsetParam()->offset().inverse();
+    Isometry3D virtualMeasurement = _cacheFrom->offsetParam()->offset() * measurement() * _cacheTo->offsetParam()->offset().inverse();
 
     if (from_.count(from) > 0) {
       to->setEstimate(from->estimate() * virtualMeasurement);

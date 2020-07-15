@@ -1,6 +1,4 @@
-add_library(core ${G2O_LIB_TYPE}
-dynamic_aligned_buffer.hpp
-ownership.h
+ADD_LIBRARY(core ${G2O_LIB_TYPE}
 base_edge.h
 base_binary_edge.h          hyper_graph_action.cpp
 base_binary_edge.hpp        hyper_graph_action.h
@@ -12,14 +10,14 @@ base_vertex.h               marginal_covariance_cholesky.h
 base_vertex.hpp             matrix_structure.cpp
 batch_stats.cpp             matrix_structure.h
 batch_stats.h               openmp_mutex.h
-block_solver.h              block_solver.hpp
-parameter.cpp               parameter.h
+block_solver.h              block_solver.hpp            
+parameter.cpp               parameter.h                 
 cache.cpp                   cache.h
-optimizable_graph.cpp       optimizable_graph.h
+optimizable_graph.cpp       optimizable_graph.h         
 solver.cpp                  solver.h
 creators.h                  optimization_algorithm_factory.cpp
 estimate_propagator.cpp     optimization_algorithm_factory.h
-estimate_propagator.h
+estimate_propagator.h       
 factory.cpp                 optimization_algorithm_property.h
 factory.h                   sparse_block_matrix.h
 sparse_optimizer.cpp  sparse_block_matrix.hpp
@@ -36,25 +34,19 @@ jacobian_workspace.cpp jacobian_workspace.h
 robust_kernel.cpp robust_kernel.h
 robust_kernel_impl.cpp robust_kernel_impl.h
 robust_kernel_factory.cpp robust_kernel_factory.h
-io_helper.h
 g2o_core_api.h
 )
 
-set_target_properties(core PROPERTIES OUTPUT_NAME ${LIB_PREFIX}core)
-target_link_libraries(core PUBLIC stuff ${G2O_EIGEN3_EIGEN_TARGET})
+SET_TARGET_PROPERTIES(core PROPERTIES OUTPUT_NAME ${LIB_PREFIX}core)
 
-if (APPLE)
-  set_target_properties(core PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
-endif()
+TARGET_LINK_LIBRARIES(core stuff)
 
-install(TARGETS core
-  EXPORT ${G2O_TARGETS_EXPORT_NAME}
-  RUNTIME DESTINATION ${RUNTIME_DESTINATION}
-  LIBRARY DESTINATION ${LIBRARY_DESTINATION}
-  ARCHIVE DESTINATION ${ARCHIVE_DESTINATION}
-  INCLUDES DESTINATION ${INCLUDES_DESTINATION}
+INSTALL(TARGETS core
+  RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
 )
 
-file(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
+FILE(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp")
 
-install(FILES ${headers} DESTINATION ${INCLUDES_INSTALL_DIR}/core)
+INSTALL(FILES ${headers} DESTINATION ${CMAKE_INSTALL_PREFIX}/include/g2o/core)
